@@ -1,0 +1,642 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define JOGADOR 1
+#define MONSTRO 2
+
+#define MAX_NOME 50
+#define MAX_CLASSE 50
+#define MAX_HABILIDADE 50
+
+typedef struct poder {
+    char nome[MAX_HABILIDADE];
+    float modificador;
+} Poder;
+
+typedef struct combatente {
+    char nome[MAX_NOME];
+    int tipo; // JOGADOR ou MONSTRO
+    char classe[MAX_CLASSE];
+    int vida;
+    int dano;
+    int iniciativa;
+    int possuiPoder;
+    Poder poder;
+} Combatente;
+
+typedef struct noCombate {
+    Combatente combatente;
+    struct noCombate *proximo;
+} NoCombate;
+
+typedef NoCombate *Participante;
+
+typedef struct filaCombate {
+    Participante primeiro;
+    Participante ultimo;
+} FilaCombate;
+
+typedef FilaCombate *ListaCombate;
+
+/* =========================================================
+   FUNCOES PRONTAS
+   ========================================================= */
+
+ListaCombate criarListaCombate(void) {
+
+    ListaCombate combate = malloc(sizeof(FilaCombate));
+
+    if (combate == NULL)
+        return NULL;
+
+    combate->primeiro = NULL;
+    combate->ultimo = NULL;
+
+    return combate;
+}
+
+Participante criarParticipante(Combatente combatente) {
+
+    Participante novoParticipante = malloc(sizeof(NoCombate));
+
+    if (novoParticipante == NULL)
+        return NULL;
+
+    novoParticipante->combatente = combatente;
+    novoParticipante->proximo = NULL;
+
+    return novoParticipante;
+}
+
+int combateVazio(ListaCombate combate) {
+
+    return combate == NULL ||
+           combate->primeiro == NULL;
+}
+
+void adicionarAoFim(ListaCombate combate,
+                    Combatente combatente) {
+
+    Participante novoParticipante =
+        criarParticipante(combatente);
+
+    if (combate == NULL ||
+        novoParticipante == NULL)
+        return;
+
+    if (combate->primeiro == NULL) {
+
+        combate->primeiro = novoParticipante;
+        combate->ultimo = novoParticipante;
+
+        novoParticipante->proximo =
+            novoParticipante;
+    }
+    else {
+
+        novoParticipante->proximo =
+            combate->primeiro;
+
+        combate->ultimo->proximo =
+            novoParticipante;
+
+        combate->ultimo =
+            novoParticipante;
+    }
+}
+
+/* Ordem crescente de iniciativa */
+void inserirPorIniciativa(ListaCombate combate,
+                          Combatente combatente) {
+
+    Participante novoParticipante;
+    Participante participanteAtual;
+
+    if (combate == NULL)
+        return;
+
+    novoParticipante =
+        criarParticipante(combatente);
+
+    if (novoParticipante == NULL)
+        return;
+
+    if (combate->primeiro == NULL) {
+
+        combate->primeiro = novoParticipante;
+        combate->ultimo = novoParticipante;
+
+        novoParticipante->proximo =
+            novoParticipante;
+
+        return;
+    }
+
+    if (combatente.iniciativa <
+        combate->primeiro->combatente.iniciativa) {
+
+        novoParticipante->proximo =
+            combate->primeiro;
+
+        combate->primeiro =
+            novoParticipante;
+
+        combate->ultimo->proximo =
+            combate->primeiro;
+
+        return;
+    }
+
+    if (combatente.iniciativa >=
+        combate->ultimo->combatente.iniciativa) {
+
+        novoParticipante->proximo =
+            combate->primeiro;
+
+        combate->ultimo->proximo =
+            novoParticipante;
+
+        combate->ultimo =
+            novoParticipante;
+
+        return;
+    }
+
+    participanteAtual =
+        combate->primeiro;
+
+    while (
+        participanteAtual->proximo != combate->primeiro &&
+        participanteAtual->proximo->combatente.iniciativa
+            <= combatente.iniciativa
+    ) {
+
+        participanteAtual =
+            participanteAtual->proximo;
+    }
+
+    novoParticipante->proximo =
+        participanteAtual->proximo;
+
+    participanteAtual->proximo =
+        novoParticipante;
+}
+
+void mostrarCombate(ListaCombate combate) {
+
+    Participante participanteAtual;
+
+    if (combateVazio(combate)) {
+
+        printf("[lista vazia]\n");
+        return;
+    }
+
+    participanteAtual =
+        combate->primeiro;
+
+    do {
+
+        printf(
+            "%s{%s, Classe=%s, HP=%d, D=%d, Ini=%d}",
+            participanteAtual->combatente.nome,
+            participanteAtual->combatente.tipo == JOGADOR
+                ? "Jogador"
+                : "Monstro",
+            participanteAtual->combatente.classe,
+            participanteAtual->combatente.vida,
+            participanteAtual->combatente.dano,
+            participanteAtual->combatente.iniciativa
+        );
+
+        if (participanteAtual->combatente.possuiPoder) {
+
+            printf(
+                "[Hab=%s x%.1f]",
+                participanteAtual->combatente.poder.nome,
+                participanteAtual->combatente.poder.modificador
+            );
+        }
+
+        participanteAtual =
+            participanteAtual->proximo;
+
+        if (participanteAtual != combate->primeiro)
+            printf(" -> ");
+
+    } while (participanteAtual != combate->primeiro);
+
+    printf("\n");
+}
+
+int contarParticipantes(ListaCombate combate,
+                        int tipo) {
+
+    Participante participanteAtual;
+    int quantidade = 0;
+
+    if (combateVazio(combate))
+        return 0;
+
+    participanteAtual =
+        combate->primeiro;
+
+    do {
+
+        if (participanteAtual->combatente.tipo == tipo)
+            quantidade++;
+
+        participanteAtual =
+            participanteAtual->proximo;
+
+    } while (participanteAtual != combate->primeiro);
+
+    return quantidade;
+}
+
+void destruirCombate(ListaCombate combate) {
+
+    Participante participanteAtual;
+    Participante proximoParticipante;
+
+    if (combate == NULL)
+        return;
+
+    if (combate->primeiro == NULL) {
+
+        free(combate);
+        return;
+    }
+
+    participanteAtual =
+        combate->primeiro->proximo;
+
+    while (participanteAtual != combate->primeiro) {
+
+        proximoParticipante =
+            participanteAtual->proximo;
+
+        free(participanteAtual);
+
+        participanteAtual =
+            proximoParticipante;
+    }
+
+    free(combate->primeiro);
+    free(combate);
+}
+/*
+TODO 1:
+Percorre a lista circular a partir do próximo participante e
+retorna o primeiro inimigo encontrado.
+*/
+
+Participante buscarInimigoMaisProximo(Participante participanteAtual) {
+
+    if (participanteAtual == NULL)
+        return NULL;
+
+    Participante candidato =
+        participanteAtual->proximo;
+
+    while (candidato != participanteAtual) {
+
+        if ((participanteAtual->combatente.tipo == JOGADOR &&
+             candidato->combatente.tipo == MONSTRO) ||
+
+            (participanteAtual->combatente.tipo == MONSTRO &&
+             candidato->combatente.tipo == JOGADOR)) {
+
+            return candidato;
+        }
+
+        candidato = candidato->proximo;
+    }
+
+    return NULL;
+}
+
+/*
+TODO 2:
+Remove um participante específico da lista circular.
+*/
+
+void removerParticipante(ListaCombate combate,
+                         Participante participanteRemover) {
+
+    Participante participanteAnterior =
+        combate->primeiro;
+
+    if (combateVazio(combate) ||
+        participanteRemover == NULL)
+        return;
+
+    // Se for o único participante da lista
+    if (combate->primeiro == participanteRemover &&
+        combate->ultimo == participanteRemover) {
+
+        free(participanteRemover);
+
+        combate->primeiro = NULL;
+        combate->ultimo = NULL;
+
+        return;
+    }
+
+    // Procura quem está antes do participante removido
+    while (participanteAnterior->proximo != participanteRemover &&
+           participanteAnterior->proximo != combate->primeiro) {
+
+        participanteAnterior =
+            participanteAnterior->proximo;
+    }
+
+    // Não encontrou o participante
+    if (participanteAnterior->proximo != participanteRemover)
+        return;
+
+    participanteAnterior->proximo =
+        participanteRemover->proximo;
+
+    // Se removido era o primeiro
+    if (participanteRemover == combate->primeiro)
+        combate->primeiro =
+            participanteRemover->proximo;
+
+    // Se removido era o último
+    if (participanteRemover == combate->ultimo)
+        combate->ultimo =
+            participanteAnterior;
+
+    combate->ultimo->proximo =
+        combate->primeiro;
+
+    free(participanteRemover);
+}
+double gerarNumeroAleatorio(void) {
+
+    double valorSorteado =
+        (double) rand() / RAND_MAX;
+
+    return valorSorteado;
+}
+
+Participante executarTurno(ListaCombate combate,
+                           Participante personagemDaVez) {
+
+    Participante alvoAtaque =
+        buscarInimigoMaisProximo(personagemDaVez);
+
+    if (alvoAtaque == NULL)
+        return personagemDaVez;
+
+    Participante proximoTurno =
+        personagemDaVez->proximo;
+
+    int danoCausado =
+        personagemDaVez->combatente.dano;
+
+    double chanceHabilidade =
+        gerarNumeroAleatorio();
+
+    if (personagemDaVez->combatente.possuiPoder &&
+        chanceHabilidade <= 0.20) {
+
+        printf("%s usou a habilidade %s! Está arregaçando!!!\n",
+               personagemDaVez->combatente.nome,
+               personagemDaVez->combatente.poder.nome);
+
+        danoCausado *=
+            personagemDaVez->combatente.poder.modificador;
+    }
+
+    printf("%s atacou %s causando %d de dano!! ᕙ( ︡'︡益'︠)ง\n",
+           personagemDaVez->combatente.nome,
+           alvoAtaque->combatente.nome,
+           danoCausado);
+
+    alvoAtaque->combatente.vida -=
+        danoCausado;
+
+    if (alvoAtaque->combatente.vida <= 0) {
+
+        printf("%s foi derrotado!\n",
+               alvoAtaque->combatente.nome);
+
+        removerParticipante(combate,
+                            alvoAtaque);
+    }
+
+    return proximoTurno;
+}
+// Testes do Guilherme
+
+void testeOrdemIniciativa(void) {
+
+    ListaCombate combate = criarListaCombate();
+
+    Combatente guerreiro = {
+        "Jogador A", JOGADOR, "Guerreiro",
+        30, 8, 20, 1,
+        {"Ataque Heroico", 1.5f}
+    };
+
+    Combatente mago = {
+        "Jogador B", JOGADOR, "Mago",
+        20, 10, 10, 1,
+        {"Bola de Fogo", 2.0f}
+    };
+
+    Combatente ladino = {
+        "Jogador C", JOGADOR, "Ladino",
+        25, 6, 5, 0,
+        {"", 0.0f}
+    };
+
+    Combatente orc = {
+        "Monstro 1", MONSTRO, "Orc",
+        18, 7, 7, 0,
+        {"", 0.0f}
+    };
+
+    Combatente goblin = {
+        "Monstro 2", MONSTRO, "Goblin",
+        15, 4, 1, 0,
+        {"", 0.0f}
+    };
+
+    inserirPorIniciativa(combate, guerreiro);
+    inserirPorIniciativa(combate, mago);
+    inserirPorIniciativa(combate, ladino);
+    inserirPorIniciativa(combate, orc);
+    inserirPorIniciativa(combate, goblin);
+
+    printf("=== TESTE 1: ORDEM DE INICIATIVA ===\n");
+    mostrarCombate(combate);
+
+    destruirCombate(combate);
+}
+
+void testeTurnoSemDerrota(void) {
+
+    ListaCombate combate = criarListaCombate();
+
+    Combatente aragorn = {
+        "Aragorn", JOGADOR, "Guerreiro",
+        30, 10, 4, 0,
+        {"", 0.0f}
+    };
+
+    Combatente gandalf = {
+        "Gandalf", JOGADOR, "Mago",
+        20, 12, 8, 0,
+        {"", 0.0f}
+    };
+
+    Combatente orc = {
+        "Orc", MONSTRO, "Orc",
+        18, 5, 6, 0,
+        {"", 0.0f}
+    };
+
+    inserirPorIniciativa(combate, aragorn);
+    inserirPorIniciativa(combate, gandalf);
+    inserirPorIniciativa(combate, orc);
+
+    printf("=== TESTE 2: UM TURNO SEM MORTE ===\n");
+
+    printf("Antes do turno:\n");
+    mostrarCombate(combate);
+
+    executarTurno(combate, combate->primeiro);
+
+    printf("Depois do turno:\n");
+    mostrarCombate(combate);
+
+    destruirCombate(combate);
+}
+
+void testeRemocaoAposDerrota(void) {
+
+    ListaCombate combate = criarListaCombate();
+
+    Participante personagemDaVez;
+
+    Combatente aragorn = {
+        "Aragorn", JOGADOR, "Guerreiro",
+        30, 20, 4, 0,
+        {"", 0.0f}
+    };
+
+    Combatente gandalf = {
+        "Gandalf", JOGADOR, "Mago",
+        20, 12, 8, 0,
+        {"", 0.0f}
+    };
+
+    Combatente orc = {
+        "Orc", MONSTRO, "Orc",
+        15, 5, 6, 0,
+        {"", 0.0f}
+    };
+
+    inserirPorIniciativa(combate, aragorn);
+    inserirPorIniciativa(combate, gandalf);
+    inserirPorIniciativa(combate, orc);
+
+    printf("=== TESTE 3: REMOCAO APOS DERROTA ===\n");
+
+    printf("Antes do turno:\n");
+    mostrarCombate(combate);
+
+    personagemDaVez = combate->primeiro;
+
+    executarTurno(combate, personagemDaVez);
+
+    printf("Depois do turno:\n");
+    mostrarCombate(combate);
+
+    destruirCombate(combate);
+}
+
+void testeVariosTurnosComPoder(void) {
+
+    ListaCombate combate = criarListaCombate();
+
+    Participante personagemDaVez;
+    int numeroTurno;
+
+    Combatente guerreiro = {
+        "Jogador A", JOGADOR, "Guerreiro",
+        25, 8, 2, 1,
+        {"Golpe Heroico", 1.5f}
+    };
+
+    Combatente mago = {
+        "Jogador B", JOGADOR, "Mago",
+        18, 10, 5, 1,
+        {"Raio Arcano", 2.0f}
+    };
+
+    Combatente orc = {
+        "Monstro 1", MONSTRO, "Orc",
+        16, 6, 3, 0,
+        {"", 0.0f}
+    };
+
+    Combatente goblin = {
+        "Monstro 2", MONSTRO, "Goblin",
+        12, 4, 1, 0,
+        {"", 0.0f}
+    };
+
+    inserirPorIniciativa(combate, guerreiro);
+    inserirPorIniciativa(combate, mago);
+    inserirPorIniciativa(combate, orc);
+    inserirPorIniciativa(combate, goblin);
+
+    personagemDaVez = combate->primeiro;
+
+    srand(42);
+
+    printf("=== TESTE 4: VARIOS TURNOS COM PODER ===\n");
+    mostrarCombate(combate);
+
+    for (numeroTurno = 1; numeroTurno <= 6; numeroTurno++) {
+
+        if (contarParticipantes(combate, JOGADOR) == 0 ||
+            contarParticipantes(combate, MONSTRO) == 0) {
+            break;
+        }
+
+        printf("\nTurno %d\n", numeroTurno);
+
+        personagemDaVez =
+            executarTurno(combate, personagemDaVez);
+
+        mostrarCombate(combate);
+    }
+
+    destruirCombate(combate);
+}
+
+int main(void) {
+
+    testeMary();
+    printf("\n");
+
+    testeOrdemIniciativa();
+    printf("\n");
+
+    testeTurnoSemDerrota();
+    printf("\n");
+
+    testeRemocaoAposDerrota();
+    printf("\n");
+
+    testeVariosTurnosComPoder();
+
+    return 0;
+}
